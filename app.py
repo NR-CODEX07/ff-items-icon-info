@@ -10,7 +10,7 @@ app = Flask(__name__)
 # --- Configuration ---
 ITEM_DATA_FILE = 'main.json'
 BACKGROUND_FOLDER = 'background'
-EXTERNAL_ITEM_API_BASE = 'https://free-fire-items.vercel.app/item-image'
+EXTERNAL_ITEM_API_BASE = 'https://raw.githubusercontent.com/I-SHOW-AKIRU200/AKIRU-ICONS/main/ICONS/'
 API_KEY = 'NRCODEX' # Aapka API key
 DEFAULT_BACKGROUND_IMAGE = 'background/Default.png' # Fallback background image
 
