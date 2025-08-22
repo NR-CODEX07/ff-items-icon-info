@@ -10,7 +10,7 @@ app = Flask(__name__)
 # --- Configuration ---
 ITEM_DATA_FILE = 'main.json'
 BACKGROUND_FOLDER = 'background'
-EXTERNAL_ITEM_API_BASE = 'https://raw.githubusercontent.com/I-SHOW-AKIRU200/AKIRU-ICONS/main/ICONS/'
+EXTERNAL_ITEM_API_BASE = 'https://raw.githubusercontent.com/I-SHOW-AKIRU200/AKIRU-ICONS/'
 API_KEY = 'NRCODEX' # Aapka API key
 DEFAULT_BACKGROUND_IMAGE = 'background/Default.png' # Fallback background image
 
@@ -44,7 +44,7 @@ def load_item_data():
 with app.app_context():
     load_item_data()
 
-@app.route('/item-image/<int:itemid>', methods=['GET'])
+@app.route('/main/ICON/<int:itemid>', methods=['GET'])
 def get_combined_item_image(itemid):
     """
     Fetches item details, combines with a rare-based background,
