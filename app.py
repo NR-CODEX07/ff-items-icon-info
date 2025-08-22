@@ -44,7 +44,7 @@ def load_item_data():
 with app.app_context():
     load_item_data()
 
-@app.route('/main/ICON/<int:itemid>', methods=['GET'])
+@app.route('/main/ICON/<int:itemid>.png', methods=['GET'])
 def get_combined_item_image(itemid):
     """
     Fetches item details, combines with a rare-based background,
