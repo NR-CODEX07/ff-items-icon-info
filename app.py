@@ -1,21 +1,19 @@
 import os
 import json
 import io
-from flask import Flask, request, send_file, jsonify
+from flask import Flask, request, send_file, jsonify, redirect, abort
 from PIL import Image
 import requests
 
 app = Flask(__name__)
 
-# --- Configuration ---
+# --- Configuration for composite images ---
 ITEM_DATA_FILE = 'main.json'
 BACKGROUND_FOLDER = 'background'
-EXTERNAL_ITEM_API_BASE = 'https://raw.githubusercontent.com/I-SHOW-AKIRU200/AKIRU-ICONS/main/ICONS'
 DEFAULT_BACKGROUND_IMAGE = 'background/Default.png'  # Fallback background image
 
 # Global variable to store item data
 item_data = None
-
 
 def load_item_data():
     """Loads item data from main.json."""
@@ -40,18 +38,53 @@ def load_item_data():
         app.logger.error(f"An unexpected error occurred while loading {ITEM_DATA_FILE}: {e}")
         return None
 
-
 # Load data when the app starts
 with app.app_context():
     load_item_data()
 
+@app.route('/item-image')
+def get_item_image():
+    """Direct image API - returns raw PNG without background"""
+    item_id = request.args.get('id')
+    key = request.args.get('key')
+    
+    # Validate key
+    if key != 'NRCODEX':
+        abort(403, description="Invalid key")
+    
+    if not item_id:
+        abort(400, description="Item ID is required")
+    
+    # Check repositories 1 to 5
+    for repo_num in range(1, 6):
+        # Determine batch range for this repo
+        if repo_num == 1:
+            # First repo has batches 01-06
+            batch_range = range(1, 7)
+        else:
+            # Subsequent repos start from batch 07, 13, 19, 25
+            start_batch = (repo_num - 1) * 6 + 1
+            batch_range = range(start_batch, start_batch + 6)
+        
+        # Check each batch in this repository
+        for batch_num in batch_range:
+            # Format batch number with leading zero
+            batch_str = f"{batch_num:02d}"
+            
+            # Construct the URL
+            url = f"https://raw.githubusercontent.com/djdndbdjfi/free-fire-items-{repo_num}/main/items/batch-{batch_str}/{item_id}.png"
+            
+            # Check if image exists
+            response = requests.head(url)
+            if response.status_code == 200:
+                return redirect(url)
+    
+    # If no image found in any repository
+    abort(404, description="Item image not found")
 
 @app.route('/main/ICON/<int:itemid>.png', methods=['GET'])
 def get_combined_item_image(itemid):
-    """
-    Fetches item details, combines with a rare-based background,
-    and returns the combined image.
-    """
+    """Composite image API - returns PNG with background based on rarity"""
     if item_data is None:
         return jsonify({"error": "Item data not loaded. Check server logs."}), 500
 
@@ -80,10 +113,42 @@ def get_combined_item_image(itemid):
         app.logger.error(f"Error loading background image {background_image_path}: {e}")
         return jsonify({"error": "Could not load background image."}), 500
 
-    # 3. Fetch item image from GitHub RAW URL
-    external_api_url = f"{EXTERNAL_ITEM_API_BASE}/{itemid}.png"
+    # 3. Fetch item image using the direct image API logic
+    item_image_url = None
+    # Check repositories 1 to 5 for the item image
+    for repo_num in range(1, 6):
+        # Determine batch range for this repo
+        if repo_num == 1:
+            # First repo has batches 01-06
+            batch_range = range(1, 7)
+        else:
+            # Subsequent repos start from batch 07, 13, 19, 25
+            start_batch = (repo_num - 1) * 6 + 1
+            batch_range = range(start_batch, start_batch + 6)
+        
+        # Check each batch in this repository
+        for batch_num in batch_range:
+            # Format batch number with leading zero
+            batch_str = f"{batch_num:02d}"
+            
+            # Construct the URL
+            url = f"https://raw.githubusercontent.com/djdndbdjfi/free-fire-items-{repo_num}/main/items/batch-{batch_str}/{itemid}.png"
+            
+            # Check if image exists
+            response = requests.head(url)
+            if response.status_code == 200:
+                item_image_url = url
+                break
+        if item_image_url:
+            break
+    
+    if not item_image_url:
+        app.logger.error(f"Item image for ID {itemid} not found in any repository.")
+        return jsonify({"error": f"Item image for ID {itemid} not found."}), 404
+
+    # 4. Download the item image
     try:
-        response = requests.get(external_api_url, stream=True)
+        response = requests.get(item_image_url, stream=True)
         response.raise_for_status()  # Raise HTTPError for bad responses
 
         item_image_bytes = io.BytesIO(response.content)
@@ -98,7 +163,7 @@ def get_combined_item_image(itemid):
         app.logger.error(f"Unexpected error with external image for ID {itemid}: {e}")
         return jsonify({"error": "Unexpected error with external image."}), 500
 
-    # 4. Resize and overlay item image onto background
+    # 5. Resize and overlay item image onto background
     bg_width, bg_height = background.size
 
     # Calculate target size for item image (70% of smaller dimension)
@@ -120,14 +185,13 @@ def get_combined_item_image(itemid):
     temp_image.paste(item_image, (paste_x, paste_y), item_image)
     combined_image = Image.alpha_composite(background, temp_image)
 
-    # 5. Return the combined image as PNG
+    # 6. Return the combined image as PNG
     img_byte_arr = io.BytesIO()
     combined_image.save(img_byte_arr, format='PNG')
     img_byte_arr.seek(0)
 
     app.logger.info(f"Successfully generated image for Item ID: {itemid}, Rare: {rare_type}")
     return send_file(img_byte_arr, mimetype='image/png', as_attachment=False, download_name=f'item_{itemid}.png')
-
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
