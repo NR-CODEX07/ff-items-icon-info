@@ -56,29 +56,32 @@ def get_item_image():
     if not item_id:  
         abort(400, description="Item ID is required")  
     
-    # Check repositories 1 to 5  
-    for repo_num in range(1, 6):  
-        # Determine batch range for this repo  
-        if repo_num == 1:  
-            # First repo has batches 01-06  
-            batch_range = range(1, 7)  
-        else:  
-            # Subsequent repos start from batch 07, 13, 19, 25  
-            start_batch = (repo_num - 1) * 6 + 1  
-            batch_range = range(start_batch, start_batch + 6)  
-          
-        # Check each batch in this repository  
-        for batch_num in batch_range:  
-            # Format batch number with leading zero  
-            batch_str = f"{batch_num:02d}"  
-              
-            # Construct the URL  
-            url = f"https://raw.githubusercontent.com/djdndbdjfi/free-fire-items-{repo_num}/main/items/batch-{batch_str}/{item_id}.png"  
-              
-            # Check if image exists  
-            response = requests.head(url)  
-            if response.status_code == 200:  
-                return redirect(url)  
+# Check repositories 1 to 6
+for repo_num in range(1, 7):  
+    # Determine batch range for this repo  
+    if repo_num == 1:  
+        # First repo has batches 01-06  
+        batch_range = range(1, 7)  
+    elif repo_num == 6:
+        # Repo 6 has batches 31-37 (7 batches)  
+        batch_range = range(31, 38)  
+    else:  
+        # Subsequent repos start from batch 07, 13, 19, 25  
+        start_batch = (repo_num - 1) * 6 + 1  
+        batch_range = range(start_batch, start_batch + 6)  
+
+    # Check each batch in this repository  
+    for batch_num in batch_range:  
+        # Format batch number with leading zero  
+        batch_str = f"{batch_num:02d}"  
+
+        # Construct the URL  
+        url = f"https://raw.githubusercontent.com/djdndbdjfi/free-fire-items-{repo_num}/main/items/batch-{batch_str}/{item_id}.png"  
+
+        # Check if image exists  
+        response = requests.head(url)  
+        if response.status_code == 200:  
+            return redirect(url)
     
     # If no image found in any repository  
     abort(404, description="Item image not found")
